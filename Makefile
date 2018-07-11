@@ -5,9 +5,10 @@ SRCDIR = ./src
 TESTSDIR = ./tests
 BUILDDIR = ./build
 
-EXECUTABLE = $(BUILDDIR)/chippy
+EXECUTABLE = $(BUILDDIR)/chip8
 OBJS = $(addprefix $(BUILDDIR)/, \
 	main.o \
+	chip8.o \
 )
 
 TEST_RUNNER = $(BUILDDIR)/tests
@@ -44,4 +45,4 @@ clean:
 
 .PHONY: format
 format:
-	find . -type f -regex ".*\.[ch]$$" -exec clang-format -i {} \;
+	find . -type f -regex ".*\.[ch]$$" -exec clang-format -style=Google -i {} \;
