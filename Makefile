@@ -35,6 +35,10 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.c
 $(BUILDDIR)/%.o: $(TESTSDIR)/%.c
 	$(COMPILE)
 
+.PHONY: run
+run: $(EXECUTABLE)
+	@$(EXECUTABLE)
+
 .PHONY: test
 test: $(TEST_RUNNER)
 	@$(TEST_RUNNER)
