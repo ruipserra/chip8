@@ -9,6 +9,7 @@ EXECUTABLE = $(BUILDDIR)/chip8
 OBJS = $(addprefix $(BUILDDIR)/, \
 	main.o \
 	chip8.o \
+	miniterm.o \
 )
 
 TEST_RUNNER = $(BUILDDIR)/tests

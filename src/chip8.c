@@ -7,6 +7,25 @@
 
 #include "chip8.h"
 
+static const uint8_t digits[16][5] = {
+  { 0xF0, 0x90, 0x90, 0x90, 0xF0 }, // 0
+  { 0x20, 0x60, 0x20, 0x20, 0xF0 }, // 1
+  { 0xF0, 0x10, 0xF0, 0x80, 0xF0 }, // 2
+  { 0xF0, 0x10, 0xF0, 0x10, 0xF0 }, // 3
+  { 0x90, 0x90, 0xF0, 0x10, 0x10 }, // 4
+  { 0xF0, 0x80, 0xF0, 0x10, 0xF0 }, // 5
+  { 0xF0, 0x80, 0xF0, 0x90, 0xF0 }, // 6
+  { 0xF0, 0x10, 0x20, 0x40, 0x40 }, // 7
+  { 0xF0, 0x90, 0xF0, 0x90, 0xF0 }, // 8
+  { 0xF0, 0x90, 0xF0, 0x10, 0xF0 }, // 9
+  { 0xF0, 0x90, 0xF0, 0x90, 0x90 }, // A
+  { 0xE0, 0x90, 0xE0, 0x90, 0xE0 }, // B
+  { 0xF0, 0x80, 0x80, 0x80, 0xF0 }, // C
+  { 0xE0, 0x90, 0x90, 0x90, 0xE0 }, // D
+  { 0xF0, 0x80, 0xF0, 0x80, 0xF0 }, // E
+  { 0xF0, 0x80, 0xF0, 0x80, 0x80 }  // F
+};
+
 void chip8_init(chip8_t* ch8) {
   ch8->ip = CHIP8_PROGRAM_START_ADDRESS;
   ch8->reg_i = 0;
@@ -16,30 +35,8 @@ void chip8_init(chip8_t* ch8) {
   ch8->sp = 0;
   memset(ch8->stack, 0, CHIP8_MEMORY_SIZE);
   memset(ch8->mem, 0, CHIP8_MEMORY_SIZE);
-}
-
-void chip8_debug(const chip8_t* ch8) {
-  printf("---- Chip8 Debug ----\n");
-  printf("  ip: %x\n", ch8->ip);
-  printf("  reg_i: %x\n", ch8->reg_i);
-  for (int i = 0; i < CHIP8_REGISTER_COUNT; i++)
-    printf("  reg_v[%d]: %x\n", i, ch8->reg_v[i]);
-  printf("  timer: %x\n", ch8->timer);
-  printf("  tone_clock: %x\n", ch8->tone_clock);
-  printf("---------------------\n");
-
-
-  for (int i = -2; i < 6; i++) {
-    uint16_t ip = ch8->ip + i * 2;
-
-    printf(
-      "%s %04X: %02X%02X\n",
-      ip + i == ch8->ip ? ">" : " ",
-      ip + i,
-      ch8->mem[ip + i],
-      ch8->mem[ip + i + 1]
-    );
-  }
+  memset(ch8->framebuffer, 0, CHIP8_FRAMEBUFFER_SIZE);
+  memcpy(&ch8->mem[CHIP8_DIGITS_START_ADDRESS], digits, sizeof(digits));
 }
 
 status_t chip8_load_rom(chip8_t* ch8, const char* filepath) {
@@ -147,7 +144,7 @@ void chip8_run_instruction(chip8_t* ch8) {
     // 7XKK - Let VX = VX + KK
     uint8_t reg = (instruction >> 8) & 0x0F;
     uint8_t val = instruction & 0xFF;
-    ch8->reg_v[reg] += val; // TODO will this wrap around?
+    ch8->reg_v[reg] += val;
     ch8->ip += 2;
   } else if ((instruction & 0xF00F) == 0x8000) {
     // 8XY0 - Let VX = VY
@@ -213,7 +210,10 @@ void chip8_run_instruction(chip8_t* ch8) {
     ch8->ip += 2;
   } else if ((instruction & 0xF0FF) == 0xF029) {
     // FX29 - Let I = 5 byte display pattern for LSD of VX
-    // TODO
+    uint8_t reg = (instruction >> 8) & 0x0F;
+    uint8_t n = ch8->reg_v[reg] & 0x0F;
+    ch8->reg_i = CHIP8_DIGITS_START_ADDRESS + (n * 5);
+    ch8->ip += 2;
   } else if ((instruction & 0xF0FF) == 0xF033) {
     // FX33 - Let MI = 3 decimal digit equivalent of VX (I unchanged)
     uint8_t reg = (instruction >> 8) & 0x0F;
@@ -237,12 +237,29 @@ void chip8_run_instruction(chip8_t* ch8) {
     ch8->ip += 2;
   } else if (instruction == 0x00E0) {
     // 00E0 - Erase display (all 0s)
-    // TODO
+    memset(&ch8->framebuffer, 0, CHIP8_FRAMEBUFFER_SIZE);
+    ch8->ip += 2;
   } else if ((instruction & 0xF000) == 0xD000) {
     // DXYN - Show n byte MI pattern at VX - VY coordinates.
     // I unchanged. MI pattern is combined with existing display via exclusive-OR
     // function. VF = 01 if a 1 in MI pattern matches 1 in existing display.
     // TODO
+    uint8_t reg_x = (instruction >> 8) & 0x0F;
+    uint8_t reg_y = (instruction >> 4) & 0x0F;
+    uint8_t n = instruction & 0x0F;
+    uint8_t x = ch8->reg_v[reg_x];
+    uint8_t y = ch8->reg_v[reg_y];
+
+    for (int i = 0; i < n; i++) {
+      uint8_t byte_pattern = ch8->mem[ch8->reg_i + i];
+      uint8_t fb_idx = (x + ((y + i) * (CHIP8_FRAMEBUFFER_MAX_X + 1))) / 8;
+      uint8_t hit = ch8->framebuffer[fb_idx] & byte_pattern;
+
+      if (hit) ch8->reg_v[15] = 1;
+      ch8->framebuffer[fb_idx] ^= byte_pattern;
+    }
+
+    ch8->ip += 2;
   } else if ((instruction & 0xF000) == 0x0000) {
     // 0MMM - Do machine language subroutine at 0MMM (subroutine must end with D4 byte)
 
@@ -250,7 +267,7 @@ void chip8_run_instruction(chip8_t* ch8) {
     ch8->stack[ch8->sp++] = ch8->ip + 2;
     ch8->ip = 0x0FFF & instruction;
   } else {
-    printf("Error: unknown instruction: %04x\n", instruction);
+    printf("Error: unknown instruction: %04x\r\n", instruction);
   }
 
 }

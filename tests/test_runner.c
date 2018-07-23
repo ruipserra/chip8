@@ -284,21 +284,12 @@ static void test_run_instruction() {
   assert(ch8.ip == 0x0202);
 
   // FX29 - Let I = 5 byte display pattern for LSD of VX
-  // TODO
-  // display the least significant decimal digit of the value at register VX.
-  // Example: V2 = 0x07, 0xF229 -> Set I to the memory address of the byte
-  // pattern for a decimal 7.
-  //
-  // Grid paper example:
-  //
-  // Byte no.  Bit pos          hex
-  //           7 6 5 4 3 2 1 0
-  //        1      X            20
-  //        2    X X X          70
-  //        3    X X X X        70
-  //        4  X X X X X        F8
-  //        5  X X   X X        D8
-  //        6  X       X        88
+  chip8_init(&ch8);
+  set_instruction_at(&ch8, 0x0200, 0xFA29);
+  ch8.reg_v[10] = 0xD2;
+  chip8_run_instruction(&ch8);
+  assert(ch8.reg_i == CHIP8_DIGITS_START_ADDRESS + (2 * 5));
+  assert(ch8.ip == 0x0202);
 
   // FX33 - Let MI = 3 decimal digit equivalent of VX (I unchanged)
   chip8_init(&ch8);
@@ -342,12 +333,34 @@ static void test_run_instruction() {
   assert(ch8.ip == 0x0202);
 
   // 00E0 - Erase display (all 0s)
-  // TODO
+  chip8_init(&ch8);
+  set_instruction_at(&ch8, 0x0200, 0x00E0);
+  ch8.framebuffer[0x42] = 0xFF;
+  chip8_run_instruction(&ch8);
+  assert(ch8.framebuffer[0x42] == 0);
+  assert(ch8.ip == 0x0202);
 
   // DXYN - Show n byte MI pattern at VX - VY coordinates.
   // I unchanged. MI pattern is combined with existing display via exclusive-OR
   // function. VF = 01 if a 1 in MI pattern matches 1 in existing display.
   // TODO
+  chip8_init(&ch8);
+  set_instruction_at(&ch8, 0x0200, 0xD123);
+  ch8.reg_v[1] = 0x20;
+  ch8.reg_v[2] = 0x10;
+  ch8.reg_i = 0x0300;
+  ch8.mem[0x300] = 0x01;
+  ch8.mem[0x301] = 0x04;
+  ch8.mem[0x302] = 0x08;
+  ch8.mem[0x303] = 0xFF;
+  ch8.framebuffer[(0x20 + (0x11 * (CHIP8_FRAMEBUFFER_MAX_X + 1))) / 8] = 0XFF;
+  chip8_run_instruction(&ch8);
+  assert(ch8.framebuffer[(0x20 + (0x10 * (CHIP8_FRAMEBUFFER_MAX_X + 1))) / 8] == 0x01);
+  assert(ch8.framebuffer[(0x20 + (0x11 * (CHIP8_FRAMEBUFFER_MAX_X + 1))) / 8] == 0xFB);
+  assert(ch8.framebuffer[(0x20 + (0x12 * (CHIP8_FRAMEBUFFER_MAX_X + 1))) / 8] == 0x08);
+  assert(ch8.framebuffer[(0x20 + (0x13 * (CHIP8_FRAMEBUFFER_MAX_X + 1))) / 8] == 0x00);
+  assert(ch8.reg_v[15] == 0x01);
+  assert(ch8.ip == 0x0202);
 
   // 0MMM - Do machine language subroutine at 0MMM (subroutine must end with D4 byte)
   chip8_init(&ch8);

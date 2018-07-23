@@ -7,6 +7,12 @@
 #define CHIP8_MEMORY_SIZE 4096
 #define CHIP8_PROGRAM_START_ADDRESS 0x0200
 #define CHIP8_STACK_SIZE 256
+#define CHIP8_FRAMEBUFFER_X_LEN 64
+#define CHIP8_FRAMEBUFFER_Y_LEN 32
+#define CHIP8_FRAMEBUFFER_MAX_X 0x3F
+#define CHIP8_FRAMEBUFFER_MAX_Y 0x1F
+#define CHIP8_FRAMEBUFFER_SIZE ((CHIP8_FRAMEBUFFER_X_LEN * CHIP8_FRAMEBUFFER_Y_LEN) / 8)
+#define CHIP8_DIGITS_START_ADDRESS 0x0000
 
 typedef enum status {
   ERR = 0,
@@ -22,6 +28,7 @@ struct chip8 {
   uint16_t stack[CHIP8_STACK_SIZE];
   uint8_t sp; // stack pointer
   uint8_t mem[CHIP8_MEMORY_SIZE];
+  uint8_t framebuffer[CHIP8_FRAMEBUFFER_SIZE];
 };
 
 typedef struct chip8 chip8_t;
