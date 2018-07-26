@@ -8,22 +8,22 @@
 #include "chip8.h"
 
 static const uint8_t digits[16][5] = {
-  { 0xF0, 0x90, 0x90, 0x90, 0xF0 }, // 0
-  { 0x20, 0x60, 0x20, 0x20, 0xF0 }, // 1
-  { 0xF0, 0x10, 0xF0, 0x80, 0xF0 }, // 2
-  { 0xF0, 0x10, 0xF0, 0x10, 0xF0 }, // 3
-  { 0x90, 0x90, 0xF0, 0x10, 0x10 }, // 4
-  { 0xF0, 0x80, 0xF0, 0x10, 0xF0 }, // 5
-  { 0xF0, 0x80, 0xF0, 0x90, 0xF0 }, // 6
-  { 0xF0, 0x10, 0x20, 0x40, 0x40 }, // 7
-  { 0xF0, 0x90, 0xF0, 0x90, 0xF0 }, // 8
-  { 0xF0, 0x90, 0xF0, 0x10, 0xF0 }, // 9
-  { 0xF0, 0x90, 0xF0, 0x90, 0x90 }, // A
-  { 0xE0, 0x90, 0xE0, 0x90, 0xE0 }, // B
-  { 0xF0, 0x80, 0x80, 0x80, 0xF0 }, // C
-  { 0xE0, 0x90, 0x90, 0x90, 0xE0 }, // D
-  { 0xF0, 0x80, 0xF0, 0x80, 0xF0 }, // E
-  { 0xF0, 0x80, 0xF0, 0x80, 0x80 }  // F
+  {0xF0, 0x90, 0x90, 0x90, 0xF0},  // 0
+  {0x20, 0x60, 0x20, 0x20, 0xF0},  // 1
+  {0xF0, 0x10, 0xF0, 0x80, 0xF0},  // 2
+  {0xF0, 0x10, 0xF0, 0x10, 0xF0},  // 3
+  {0x90, 0x90, 0xF0, 0x10, 0x10},  // 4
+  {0xF0, 0x80, 0xF0, 0x10, 0xF0},  // 5
+  {0xF0, 0x80, 0xF0, 0x90, 0xF0},  // 6
+  {0xF0, 0x10, 0x20, 0x40, 0x40},  // 7
+  {0xF0, 0x90, 0xF0, 0x90, 0xF0},  // 8
+  {0xF0, 0x90, 0xF0, 0x10, 0xF0},  // 9
+  {0xF0, 0x90, 0xF0, 0x90, 0x90},  // A
+  {0xE0, 0x90, 0xE0, 0x90, 0xE0},  // B
+  {0xF0, 0x80, 0x80, 0x80, 0xF0},  // C
+  {0xE0, 0x90, 0x90, 0x90, 0xE0},  // D
+  {0xF0, 0x80, 0xF0, 0x80, 0xF0},  // E
+  {0xF0, 0x80, 0xF0, 0x80, 0x80}   // F
 };
 
 void chip8_init(chip8_t* ch8) {
@@ -32,6 +32,7 @@ void chip8_init(chip8_t* ch8) {
   for (int i = 0; i < CHIP8_REGISTER_COUNT; i++) ch8->reg_v[i] = 0;
   ch8->timer = 0;
   ch8->tone_clock = 0;
+  ch8->keypress = CHIP8_NO_KEY_PRESSED;
   ch8->sp = 0;
   memset(ch8->stack, 0, CHIP8_MEMORY_SIZE);
   memset(ch8->mem, 0, CHIP8_MEMORY_SIZE);
@@ -70,8 +71,8 @@ void chip8_run_instruction(chip8_t* ch8) {
   uint16_t instruction = (ch8->mem[ch8->ip] << 8) | ch8->mem[ch8->ip + 1];
 
   // TODO
-  // if (ch8->timer > 0) ch8->timer--;
-  // if (ch8->tone_clock > 0) ch8->tone_clock--;
+  if (ch8->timer > 0) ch8->timer--;
+  if (ch8->tone_clock > 0) ch8->tone_clock--;
 
   if ((instruction & 0xF000) == 0x1000) {
     // 1MMM - Go to MMM
@@ -124,10 +125,22 @@ void chip8_run_instruction(chip8_t* ch8) {
     }
   } else if ((instruction & 0xF0FF) == 0xE09E) {
     // EX9E - Skip next instruction if VX == hexadecimal key (LSD)
-    // TODO
+    uint8_t reg_x = (instruction >> 8) & 0x0F;
+    if (ch8->reg_v[reg_x] == ch8->keypress &&
+        ch8->keypress != CHIP8_NO_KEY_PRESSED) {
+      ch8->ip += 4;
+    } else {
+      ch8->ip += 2;
+    }
   } else if ((instruction & 0xF0FF) == 0xE0A1) {
     // EXA1 - Skip next instruction if VX != hexadecimal key (LSD)
-    // TODO
+    uint8_t reg_x = (instruction >> 8) & 0x0F;
+    if (ch8->reg_v[reg_x] != ch8->keypress ||
+        ch8->keypress == CHIP8_NO_KEY_PRESSED) {
+      ch8->ip += 4;
+    } else {
+      ch8->ip += 2;
+    }
   } else if ((instruction & 0xF000) == 0x6000) {
     // 6XKK - Let VX = KK
     uint8_t reg = (instruction >> 8) & 0x0F;
@@ -188,7 +201,11 @@ void chip8_run_instruction(chip8_t* ch8) {
     ch8->ip += 2;
   } else if ((instruction & 0xF0FF) == 0xF00A) {
     // FX0A - Let VX = hexadecimal key digit (waits for key press)
-    // TODO
+    uint8_t reg_x = (instruction >> 8) & 0x0F;
+    if (ch8->keypress != CHIP8_NO_KEY_PRESSED) {
+      ch8->reg_v[reg_x] = ch8->keypress;
+      ch8->ip += 2;
+    }
   } else if ((instruction & 0xF0FF) == 0xF015) {
     // FX15 - Set timer = VX (01 = 1/60 second)
     uint8_t reg = (instruction >> 8) & 0x0F;
@@ -196,6 +213,7 @@ void chip8_run_instruction(chip8_t* ch8) {
     ch8->ip += 2;
   } else if ((instruction & 0xF0FF) == 0xF018) {
     // FX18 - Set tone duration = VX (01 = 1/60 second)
+    // TODO this should play tone
     uint8_t reg = (instruction >> 8) & 0x0F;
     ch8->tone_clock = ch8->reg_v[reg];
     ch8->ip += 2;
@@ -241,8 +259,9 @@ void chip8_run_instruction(chip8_t* ch8) {
     ch8->ip += 2;
   } else if ((instruction & 0xF000) == 0xD000) {
     // DXYN - Show n byte MI pattern at VX - VY coordinates.
-    // I unchanged. MI pattern is combined with existing display via exclusive-OR
-    // function. VF = 01 if a 1 in MI pattern matches 1 in existing display.
+    // I unchanged. MI pattern is combined with existing display via
+    // exclusive-OR function. VF = 01 if a 1 in MI pattern matches 1 in existing
+    // display.
     // TODO
     uint8_t reg_x = (instruction >> 8) & 0x0F;
     uint8_t reg_y = (instruction >> 4) & 0x0F;
@@ -250,9 +269,12 @@ void chip8_run_instruction(chip8_t* ch8) {
     uint8_t x = ch8->reg_v[reg_x];
     uint8_t y = ch8->reg_v[reg_y];
 
+    // Clear hit flag
+    ch8->reg_v[15] = 0;
+
     for (int i = 0; i < n; i++) {
       uint8_t byte_pattern = ch8->mem[ch8->reg_i + i];
-      uint8_t fb_idx = (x + ((y + i) * (CHIP8_FRAMEBUFFER_MAX_X + 1))) / 8;
+      uint8_t fb_idx = (x + ((y + i) * CHIP8_FRAMEBUFFER_X_LEN)) / 8;
       uint8_t hit = ch8->framebuffer[fb_idx] & byte_pattern;
 
       if (hit) ch8->reg_v[15] = 1;
@@ -261,7 +283,8 @@ void chip8_run_instruction(chip8_t* ch8) {
 
     ch8->ip += 2;
   } else if ((instruction & 0xF000) == 0x0000) {
-    // 0MMM - Do machine language subroutine at 0MMM (subroutine must end with D4 byte)
+    // 0MMM - Do machine language subroutine at 0MMM (subroutine must end with
+    // D4 byte)
 
     // TODO Error handling.
     ch8->stack[ch8->sp++] = ch8->ip + 2;
@@ -269,5 +292,4 @@ void chip8_run_instruction(chip8_t* ch8) {
   } else {
     printf("Error: unknown instruction: %04x\r\n", instruction);
   }
-
 }

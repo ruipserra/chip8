@@ -10,5 +10,4 @@ void mterm_clear_screen(void);
 void mterm_show_cursor(bool val);
 void mterm_set_cursor_pos(int line, int column);
 
-#endif // __MINITERM_H__
-
+#endif  // __MINITERM_H__
