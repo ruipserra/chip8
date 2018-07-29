@@ -5,6 +5,8 @@ SRCDIR = ./src
 TESTSDIR = ./tests
 BUILDDIR = ./build
 
+ROM ?= ./rocket.ch8
+
 EXECUTABLE = $(BUILDDIR)/chip8
 OBJS = $(addprefix $(BUILDDIR)/, \
 	main.o \
@@ -38,7 +40,7 @@ $(BUILDDIR)/%.o: $(TESTSDIR)/%.c
 
 .PHONY: run
 run: $(EXECUTABLE)
-	@$(EXECUTABLE)
+	@$(EXECUTABLE) $(ROM)
 
 .PHONY: test
 test: $(TEST_RUNNER)

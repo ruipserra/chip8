@@ -7,8 +7,6 @@
 #include "chip8.h"
 #include "miniterm.h"
 
-#define ROM "./rocket.ch8"
-
 #define KEY_0 ','
 #define KEY_1 '7'
 #define KEY_2 '8'
@@ -33,16 +31,24 @@ void render_framebuffer(const chip8_t *ch8);
 void render_debug(const chip8_t *ch8);
 bool process_input(chip8_t *ch8, int *render_mode);
 
-int main(void) {
+char *rom = NULL;
+bool is_paused = false;
+
+int main(int argc, char **argv) {
+  if (argc != 2) {
+    printf("Usage: %s [rom]\n", argv[0]);
+    return 1;
+  }
+
+  rom = argv[1];
+
   srand(time(NULL));
 
   chip8_t ch8;
   chip8_init(&ch8);
-  chip8_load_rom(&ch8, ROM);
+  chip8_load_rom(&ch8, rom);
 
   mterm_init();
-  mterm_clear_screen();
-  mterm_show_cursor(false);
 
   int render_mode = RENDER_FRAMEBUFFER;
   bool running = true;
@@ -50,8 +56,10 @@ int main(void) {
   while (running) {
     running = process_input(&ch8, &render_mode);
 
-    for (int i = 0; i < 20; i++) {
-      chip8_run_instruction(&ch8);
+    if (!is_paused) {
+      for (int i = 0; i < 10; i++) {
+        chip8_run_instruction(&ch8);
+      }
     }
 
     render(&ch8, render_mode);
@@ -69,12 +77,16 @@ void render(const chip8_t *ch8, int render_mode) {
   } else if (render_mode == RENDER_FRAMEBUFFER) {
     render_framebuffer(ch8);
   }
+
+  fflush(stdout);
 }
 
 void render_framebuffer(const chip8_t *ch8) {
   const uint8_t *framebuffer_end = &ch8->framebuffer[CHIP8_FRAMEBUFFER_SIZE];
   const uint8_t *framebuffer_ptr = &ch8->framebuffer[0];
   uint8_t row = 0, col = 0;
+
+  if (ch8->tone_clock) fprintf(stdout, "\a");
 
   while (framebuffer_ptr != framebuffer_end) {
     uint8_t byte = *framebuffer_ptr;
@@ -95,7 +107,6 @@ void render_framebuffer(const chip8_t *ch8) {
   }
 
   fprintf(stdout, "\x1b[49m  ");
-  fflush(stdout);
 }
 
 void render_debug(const chip8_t *ch8) {
@@ -180,7 +191,16 @@ bool process_input(chip8_t *ch8, int *render_mode) {
 
     case 'r':  // Reset
       chip8_init(ch8);
-      chip8_load_rom(ch8, ROM);
+      chip8_load_rom(ch8, rom);
+      break;
+
+    case '1':  // Run one instruction and wait
+      is_paused = true;
+      chip8_run_instruction(ch8);
+      break;
+
+    case '2':  // Run (resume)
+      is_paused = false;
       break;
 
     case 'q':  // Quit

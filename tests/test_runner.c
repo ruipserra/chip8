@@ -395,27 +395,63 @@ static void test_run_instruction() {
   // DXYN - Show n byte MI pattern at VX - VY coordinates.
   // I unchanged. MI pattern is combined with existing display via exclusive-OR
   // function. VF = 01 if a 1 in MI pattern matches 1 in existing display.
-  // TODO
   chip8_init(&ch8);
-  set_instruction_at(&ch8, 0x0200, 0xD123);
-  ch8.reg_v[1] = 0x20;
-  ch8.reg_v[2] = 0x10;
+  set_instruction_at(&ch8, 0x0200, 0xD121);
+  ch8.reg_v[1] = 0x00;
+  ch8.reg_v[2] = 0x00;
+  ch8.reg_i = 0x0300;
+  ch8.mem[0x300] = 0x33;
+  chip8_run_instruction(&ch8);
+  assert(ch8.framebuffer[0] == 0x33);
+  for (int i = 1; i < CHIP8_FRAMEBUFFER_SIZE; i++)
+    assert(ch8.framebuffer[i] == 0);
+  assert(ch8.reg_v[15] == 0);
+  assert(ch8.ip == 0x0202);
+
+  chip8_init(&ch8);
+  set_instruction_at(&ch8, 0x0200, 0xD121);
+  ch8.reg_v[1] = 0x01;
+  ch8.reg_v[2] = 0x00;
+  ch8.reg_i = 0x0300;
+  ch8.mem[0x300] = 0xA3;
+  chip8_run_instruction(&ch8);
+  assert(ch8.framebuffer[0] == 0x51);
+  assert(ch8.framebuffer[1] == 0x80);
+  for (int i = 2; i < CHIP8_FRAMEBUFFER_SIZE; i++)
+    assert(ch8.framebuffer[i] == 0);
+  assert(ch8.reg_v[15] == 0);
+  assert(ch8.ip == 0x0202);
+
+  chip8_init(&ch8);
+  set_instruction_at(&ch8, 0x0200, 0xD121);
+  ch8.reg_v[1] = 0x01;
+  ch8.reg_v[2] = 0x00;
+  ch8.reg_i = 0x0300;
+  ch8.mem[0x300] = 0xA3;
+  ch8.framebuffer[1] = 0x80;
+  chip8_run_instruction(&ch8);
+  assert(ch8.framebuffer[0] == 0x51);
+  assert(ch8.framebuffer[1] == 0x00);
+  for (int i = 2; i < CHIP8_FRAMEBUFFER_SIZE; i++)
+    assert(ch8.framebuffer[i] == 0);
+  assert(ch8.reg_v[15] == 1);
+  assert(ch8.ip == 0x0202);
+
+  chip8_init(&ch8);
+  set_instruction_at(&ch8, 0x0200, 0xD122);
+  ch8.reg_v[1] = 0x01;
+  ch8.reg_v[2] = 0x02;
   ch8.reg_i = 0x0300;
   ch8.mem[0x300] = 0x01;
-  ch8.mem[0x301] = 0x04;
-  ch8.mem[0x302] = 0x08;
-  ch8.mem[0x303] = 0xFF;
-  ch8.framebuffer[(0x20 + (0x11 * (CHIP8_FRAMEBUFFER_MAX_X + 1))) / 8] = 0XFF;
+  ch8.mem[0x301] = 0x24;
+  ch8.mem[0x302] = 0xFF;
+  ch8.framebuffer[24] = 0x10;
   chip8_run_instruction(&ch8);
-  assert(ch8.framebuffer[(0x20 + (0x10 * (CHIP8_FRAMEBUFFER_MAX_X + 1))) / 8] ==
-         0x01);
-  assert(ch8.framebuffer[(0x20 + (0x11 * (CHIP8_FRAMEBUFFER_MAX_X + 1))) / 8] ==
-         0xFB);
-  assert(ch8.framebuffer[(0x20 + (0x12 * (CHIP8_FRAMEBUFFER_MAX_X + 1))) / 8] ==
-         0x08);
-  assert(ch8.framebuffer[(0x20 + (0x13 * (CHIP8_FRAMEBUFFER_MAX_X + 1))) / 8] ==
-         0x00);
-  assert(ch8.reg_v[15] == 0x01);
+  assert(ch8.framebuffer[16] == 0x00);
+  assert(ch8.framebuffer[17] == 0x80);
+  assert(ch8.framebuffer[24] == 0x02);
+  assert(ch8.framebuffer[25] == 0x00);
+  assert(ch8.reg_v[15] == 1);
   assert(ch8.ip == 0x0202);
 
   // 0MMM - Do machine language subroutine at 0MMM (subroutine must end with D4

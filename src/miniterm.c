@@ -19,6 +19,10 @@ void mterm_init(void) {
   raw_termios.c_cc[VMIN] = 0;
   raw_termios.c_cc[VTIME] = 0;
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw_termios);
+
+  mterm_clear_screen();
+  mterm_show_cursor(false);
+  mterm_set_cursor_pos(0, 0);
 }
 
 void mterm_teardown(void) {
